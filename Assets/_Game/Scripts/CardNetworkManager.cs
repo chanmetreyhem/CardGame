@@ -35,7 +35,7 @@ public class CardNetworkManager : NetworkManager
 
        // Debug.Log("Server Add Player !");
         GameObject player = Instantiate(playerPrefab, transform.position, Quaternion.identity);
-        if(CardGameController.instance.playerOne == null)
+        if (CardGameController.instance.playerOne == null)
         {
             CardGameController.instance.playerOne = player.GetComponent<PlayerNet>();
         }
@@ -43,6 +43,8 @@ public class CardNetworkManager : NetworkManager
         {
             CardGameController.instance.playerTwo = player.GetComponent<PlayerNet>();
         }
+        CardGameController.instance.playersDic.Add(conn.ToString(),player.GetComponent<PlayerNet>());
+
         NetworkServer.AddPlayerForConnection(conn, player);
 
         CardGameController.instance.OnServerAddPlayer(conn);

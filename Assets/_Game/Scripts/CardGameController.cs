@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using UnityEngine;
 using System.Linq;
 using System.Collections;
+using Mirror.BouncyCastle.Security.Certificates;
 
 
 
@@ -15,7 +16,7 @@ public class CardGameController : NetworkBehaviour
     public static CardGameController instance;
     public PlayerNet playerOne;
     public PlayerNet playerTwo;
-
+    public SyncDictionary<string, PlayerNet> playersDic = new SyncDictionary<string, PlayerNet>();
 
     [Serializable]
     public class Player
@@ -32,8 +33,9 @@ public class CardGameController : NetworkBehaviour
 
     [Header("CARD PREFAB")]
     [SerializeField] private GameObject cardPrefab;
-    
+
     [Header("LOCATION OF CARD")]
+    [SerializeField] private Transform decksPos;
     [SerializeField] private GameObject localPlayerPlayerCardPlace;
     [SerializeField] private GameObject otherPlayerPlayerCardPlace;
     [Header("UI")]
@@ -48,6 +50,8 @@ public class CardGameController : NetworkBehaviour
 
     private void Awake()
     {
+       
+
         if (instance == null)
         {
             instance = this;
@@ -102,6 +106,7 @@ public class CardGameController : NetworkBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+       
         calculateButton.gameObject.SetActive(false);
         clearButton.gameObject.SetActive(false);
         shuffleButton.gameObject.SetActive(false);
@@ -147,7 +152,7 @@ public class CardGameController : NetworkBehaviour
     private void DealCard()
     {
         GenerateCardFromCardSprite();
-        ShuffleCard();
+        StartCoroutine(ShuffleCard());
 
         shuffleButton.gameObject.SetActive(false);
         calculateButton.gameObject.SetActive(true);
@@ -175,7 +180,7 @@ public class CardGameController : NetworkBehaviour
 
     int maxCard = 4;
     int maxCardPerPlayer = 2;
-    private void ShuffleCard()
+    private IEnumerator ShuffleCard()
     {
         for (int i = 0; i < maxCard; i++) {
             var card = decks[i];
@@ -207,7 +212,7 @@ public class CardGameController : NetworkBehaviour
             }
 
             decks.Remove(card);
-
+            yield return new WaitForSeconds(0.5f);
         }
        // localSumOfCardValueText.text = GetSumOfCardValue(firstPlayer.hands).ToString();
     }
@@ -255,17 +260,37 @@ public class CardGameController : NetworkBehaviour
             list[n] = value;
         }
     }
-  
 
-  
-    public void CloneCardGameObject(CardData card, bool isLocalPlayer)
+
+
+    public void CloneCardGameObject(CardData card, bool isLocalPlayer, Vector2 pos, float localScale, float angleZ)
     {
         var parent = isLocalPlayer ? localPlayerPlayerCardPlace : otherPlayerPlayerCardPlace;
-        GameObject cardPre = Instantiate(cardPrefab, parent.transform.position, Quaternion.identity);
+        GameObject cardPre = Instantiate(cardPrefab, Vector3.zero, Quaternion.identity);
+
         GameObject back = cardPre.transform.GetChild(0).gameObject;
-        back.SetActive(!isLocalPlayer);
-        cardPre.transform.SetParent(parent.transform, false);
+        back.SetActive(true);
+        
+        cardPre.transform.SetParent(decksPos, false);
+        cardPre.transform.SetParent(parent.transform, true);
+       
         cardPre.GetComponent<Image>().sprite = cardsSprite.FirstOrDefault(s => s.name == card.Name);
+
+        cardPre.LeanMoveLocal(pos, 0.5f).setEaseInQuad();
+
+        if (!isLocalPlayer) return;
+       // cardPre.transform.localPosition = pos;
+        cardPre.transform.localRotation = Quaternion.Euler(0, 0, angleZ);
+        cardPre.transform.localScale = Vector2.one * localScale;
+
+
+
+
+        cardPre.LeanMoveLocal(pos, 0.4f).setEaseInQuad().setOnComplete(()=> {
+            // back.SetActive(!isLocalPlayer);
+            Flip( cardPre);
+         
+        });
     }
     
 
@@ -289,9 +314,9 @@ public class CardGameController : NetworkBehaviour
             else
                 if (g.transform.childCount > 0)
             {
-                g.transform.GetChild(0).gameObject.SetActive(false);
-                int sum = 0;
-              
+                // g.transform.GetChild(0).gameObject.SetActive(false);
+
+                Flip(g);
             }
                    
                        
@@ -301,15 +326,28 @@ public class CardGameController : NetworkBehaviour
     private List<GameObject> GetChildGameObjectToList(GameObject gameObject)
     {
         List<GameObject> list = new List<GameObject>();
-        for(int i = 0; i < gameObject.transform.childCount; i++)
-        {
-            list.Add(gameObject.transform.GetChild(i).gameObject);
+        //for(int i = 0; i < gameObject.transform.childCount; i++)
+        //{
+        //    list.Add(gameObject.transform.GetChild(i).gameObject);
+        //}
+        foreach (Transform transform in gameObject.transform) {
+            list.Add(transform.gameObject);
         }
         return list;
     }
 
 
-    
+    public void Flip( GameObject card)
+    {
+        
+            LeanTween.rotateY(card, 90f, 0.25f).setEaseInOutQuad().setOnComplete(() =>
+            {
+                card.transform.GetChild(0).gameObject.SetActive(false); // show back (child of front)
+                LeanTween.rotateY(card, 0f, 0.25f).setEaseInOutQuad();
+            });
+        
+        
+    }
 
 
     [ClientRpc]
