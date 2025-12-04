@@ -1,5 +1,5 @@
 using Mirror;
-using System;
+using System.Linq;
 using UnityEngine;
 
 public class CardNetworkManager : NetworkManager
@@ -10,8 +10,8 @@ public class CardNetworkManager : NetworkManager
   
     public override void OnStartServer()
     {
-        //Debug.Log("Server Start !");
-      
+        GameManager.Instance.index = 1;
+        print($"{nameof(CardNetworkManager)} : on start server");
         menuPanel.SetActive(false);
         base.OnStartServer();
 
@@ -20,9 +20,9 @@ public class CardNetworkManager : NetworkManager
 
     public override void OnStopServer()
     {
-        //Debug.Log("Server Stop !");
-        
-       
+        print($"{nameof(CardNetworkManager)} : on stop server");
+
+
         menuPanel.SetActive(true);
         base.OnStopServer();
 
@@ -32,31 +32,38 @@ public class CardNetworkManager : NetworkManager
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
        
-
-       // Debug.Log("Server Add Player !");
+        Debug.Log(nameof(CardNetworkManager) + ": Server Add Player ! : ConnectionID: " + conn.connectionId );
         GameObject player = Instantiate(playerPrefab, transform.position, Quaternion.identity);
-        if (CardGameController.instance.playerOne == null)
-        {
-            CardGameController.instance.playerOne = player.GetComponent<PlayerNet>();
-        }
-        else
-        {
-            CardGameController.instance.playerTwo = player.GetComponent<PlayerNet>();
-        }
-        CardGameController.instance.playersDic.Add(conn.ToString(),player.GetComponent<PlayerNet>());
-
         NetworkServer.AddPlayerForConnection(conn, player);
+        var playerNet = player.GetComponent<PlayerNet>();
 
+
+        CardGameController.instance.playersDic.Add(conn.connectionId.ToString(), playerNet);
+        playerNet.Index = CardGameController.instance.playersDic.Keys.ToList().IndexOf(conn.connectionId.ToString());
         CardGameController.instance.OnServerAddPlayer(conn);
       
 
     }
 
+    public override void OnServerConnect(NetworkConnectionToClient conn)
+    {
+        print($"{nameof(CardNetworkManager)} : on server connect client: ${conn.connectionId}");
+        CardGameController.instance.OnServerConnect(conn);
+        base.OnServerConnect(conn);
+    }
+    public override void OnServerDisconnect(NetworkConnectionToClient conn)
+    {
+        print($"{nameof(CardNetworkManager)} : on server disconnect client: ${conn.connectionId}");
+        CardGameController.instance.OnServerDisconnect(conn);
+        base.OnServerDisconnect(conn);
+    }
+
 
     public override void OnClientConnect()
     {
-        //print("on client connect ");
+        print($"{nameof(CardNetworkManager)} : on client connect");
         CardGameController.instance.OnClientConnect();
+      
         menuPanel.SetActive(false);
         
         base.OnClientConnect();
@@ -64,17 +71,12 @@ public class CardNetworkManager : NetworkManager
 
     public override void OnClientDisconnect()
     {
-        //print("on client disconnected");
+        print($"{nameof(CardNetworkManager)} : on client disconnect");
         CardGameController.instance.OnClientDisconnect();
         menuPanel.SetActive(true);
-      
-        base.OnClientDisconnect();
-
-
-        
+        base.OnClientDisconnect();     
     }
-
-   
+    
 }
 
 
